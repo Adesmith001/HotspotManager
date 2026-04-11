@@ -1,13 +1,13 @@
-/**
- * @format
- */
+import {isPremiumFeature} from '../src/types/premium';
 
-import React from 'react';
-import ReactTestRenderer from 'react-test-renderer';
-import App from '../App';
+describe('feature separation', () => {
+  it('keeps free and premium feature boundaries', () => {
+    expect(isPremiumFeature('deviceManagement')).toBe(false);
+    expect(isPremiumFeature('basicDataLimits')).toBe(false);
+    expect(isPremiumFeature('hotspotTimer')).toBe(false);
 
-test('renders correctly', async () => {
-  await ReactTestRenderer.act(() => {
-    ReactTestRenderer.create(<App />);
+    expect(isPremiumFeature('specificScheduling')).toBe(true);
+    expect(isPremiumFeature('deviceReports')).toBe(true);
+    expect(isPremiumFeature('customPlans')).toBe(true);
   });
 });
