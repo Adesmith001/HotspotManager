@@ -28,6 +28,12 @@ export const loadCapabilityState = async (): Promise<CapabilityState> => {
   const snapshot = await getNativeCapabilities();
   return {
     tier: determineCapabilityTier(Platform.OS as 'android' | 'ios', snapshot),
-    ...snapshot,
+    canToggleHotspot: snapshot.canToggleHotspot,
+    canListClients: snapshot.canListClients,
+    canBlockClients: snapshot.canBlockClients,
+    canRunBackgroundAutomation: snapshot.canRunBackgroundAutomation,
+    canSendLocalNotifications: snapshot.canSendLocalNotifications,
+    canEstimateUsage: snapshot.canEstimateUsage,
+    diagnostics: snapshot.diagnostics,
   };
 };

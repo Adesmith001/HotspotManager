@@ -1,4 +1,4 @@
-import {ConnectedDevice, UsageRecord} from '../types/domain';
+import {ConnectedDevice, UsageRecord, UsageSnapshot} from '../types/domain';
 
 export interface DeviceUsageReport {
   deviceId: string;
@@ -9,7 +9,7 @@ export interface DeviceUsageReport {
 
 export const buildDeviceReports = (
   devices: ConnectedDevice[],
-  usageRecords: UsageRecord[],
+  usageRecords: Array<UsageRecord | UsageSnapshot>,
 ): DeviceUsageReport[] => {
   const totals = usageRecords.reduce<Record<string, number>>((acc, record) => {
     acc[record.deviceId] = (acc[record.deviceId] ?? 0) + record.bytesUsed;

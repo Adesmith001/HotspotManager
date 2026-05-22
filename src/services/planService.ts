@@ -7,5 +7,7 @@ export const createDefaultPlan = (deviceId: string, index: number): DevicePlan =
     planName: `Custom Plan ${index + 1}`,
     byteCap: 1024 * 1024 * 1024,
     overageAction: 'warn',
+    renewalDay: 1,
+    warningThresholdPct: 80,
   };
 };

@@ -4,4 +4,8 @@ export interface NativeCapabilitySnapshot {
   canToggleHotspot: boolean;
   canListClients: boolean;
   canBlockClients: boolean;
+  canRunBackgroundAutomation: boolean;
+  canSendLocalNotifications: boolean;
+  canEstimateUsage: boolean;
+  diagnostics: string[];
 }

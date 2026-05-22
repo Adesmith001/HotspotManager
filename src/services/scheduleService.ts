@@ -17,7 +17,8 @@ export const getActiveSchedule = (
 
   const candidates = schedules.filter(
     rule =>
-      rule.dayOfWeek === day &&
+      (rule.enabled ?? true) &&
+      (rule.daysOfWeek?.includes(day) ?? rule.dayOfWeek === day) &&
       hour >= rule.startHour &&
       hour < rule.endHour &&
       (rule.scope === 'global' || rule.deviceId === deviceId),

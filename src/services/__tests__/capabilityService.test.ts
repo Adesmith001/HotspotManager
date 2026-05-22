@@ -6,6 +6,10 @@ describe('determineCapabilityTier', () => {
       canToggleHotspot: false,
       canListClients: false,
       canBlockClients: false,
+      canRunBackgroundAutomation: false,
+      canSendLocalNotifications: true,
+      canEstimateUsage: true,
+      diagnostics: [],
     });
     expect(tier).toBe('C');
   });
@@ -15,6 +19,10 @@ describe('determineCapabilityTier', () => {
       canToggleHotspot: true,
       canListClients: true,
       canBlockClients: true,
+      canRunBackgroundAutomation: true,
+      canSendLocalNotifications: true,
+      canEstimateUsage: true,
+      diagnostics: [],
     });
     expect(tier).toBe('A');
   });

@@ -16,7 +16,7 @@ describe('PremiumGate', () => {
     });
     const textNodes = tree!.root.findAllByType(Text);
     expect(textNodes.map(node => node.props.children).join(' ')).toContain(
-      'Premium required',
+      'Hotspot Manager Pro',
     );
   });
 });

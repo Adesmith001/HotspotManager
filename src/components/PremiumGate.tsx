@@ -15,13 +15,19 @@ export const PremiumGate: React.FC<PremiumGateProps> = ({
   if (!premium) {
     return (
       <View style={styles.lockCard}>
-        <Text style={styles.lockTitle}>Premium required</Text>
+        <Text style={styles.lockTitle}>Hotspot Manager Pro</Text>
         <Text style={styles.lockText}>
-          Upgrade to unlock scheduling, per-device reports, and custom plans.
+          Free keeps core device control, timer, limits, and activity tracking.
+          Pro unlocks automations, per-device policy enforcement, richer
+          insights, backup/export, and smarter recommendations.
         </Text>
+        <View style={styles.list}>
+          <Text style={styles.item}>Free: device control, timer, limits, alerts</Text>
+          <Text style={styles.item}>Pro: policy profiles, insights, backup/export</Text>
+        </View>
         {onUpgrade ? (
           <Pressable onPress={onUpgrade} style={styles.upgradeButton}>
-            <Text style={styles.upgradeButtonText}>Upgrade</Text>
+            <Text style={styles.upgradeButtonText}>Unlock Pro</Text>
           </Pressable>
         ) : null}
       </View>
@@ -47,6 +53,14 @@ const styles = StyleSheet.create({
   lockText: {
     color: '#38384d',
     marginBottom: 10,
+  },
+  list: {
+    gap: 4,
+    marginBottom: 10,
+  },
+  item: {
+    color: '#38384d',
+    fontWeight: '600',
   },
   upgradeButton: {
     alignSelf: 'flex-start',

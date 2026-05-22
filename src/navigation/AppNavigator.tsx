@@ -2,68 +2,88 @@ import React from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import {PremiumGate} from '../components/PremiumGate';
-import {DeviceUsageReport} from '../services/reportService';
-import {CapabilityState, ConnectedDevice, DataLimit, DevicePlan, HotspotTimer, ScheduleRule} from '../types/domain';
+import {InsightsSummary} from '../services/insightsService';
+import {
+  ActivityEvent,
+  AutomationProfile,
+  CapabilityState,
+  ConnectedDevice,
+  DataLimit,
+  DevicePolicy,
+  HotspotStatus,
+  HotspotTimer,
+} from '../types/domain';
 import {appStyles} from '../theme';
+import {AutomationsScreen} from '../screens/AutomationsScreen';
+import {DashboardScreen} from '../screens/DashboardScreen';
 import {DevicesScreen} from '../screens/DevicesScreen';
+import {InsightsScreen} from '../screens/InsightsScreen';
 import {LimitsScreen} from '../screens/LimitsScreen';
-import {OverviewScreen} from '../screens/OverviewScreen';
-import {PlansScreen} from '../screens/PlansScreen';
-import {ReportsScreen} from '../screens/ReportsScreen';
-import {SchedulesScreen} from '../screens/SchedulesScreen';
-import {TimerScreen} from '../screens/TimerScreen';
 
 export type AppScreenKey =
-  | 'overview'
+  | 'dashboard'
   | 'devices'
   | 'limits'
-  | 'timer'
-  | 'schedules'
-  | 'reports'
-  | 'plans';
+  | 'automations'
+  | 'insights';
 
 interface AppNavigatorProps {
   activeScreen: AppScreenKey;
   setActiveScreen: (key: AppScreenKey) => void;
   capability: CapabilityState;
   premiumActive: boolean;
+  hotspotStatus: HotspotStatus;
   globalUsageBytes: number;
   globalLimit: DataLimit;
   devices: ConnectedDevice[];
   timer: HotspotTimer | null;
-  schedules: ScheduleRule[];
-  plans: DevicePlan[];
-  reports: DeviceUsageReport[];
+  activity: ActivityEvent[];
+  policies: DevicePolicy[];
+  automationProfiles: AutomationProfile[];
+  insightsSummary: InsightsSummary;
+  usageCsv: string;
+  backupPayload: string;
   nowMs: number;
+  onToggleHotspot: (enabled: boolean) => void;
+  onCaptureUsage: () => void;
   onToggleDeviceBlock: (device: ConnectedDevice) => void;
+  onRenameDevice: (device: ConnectedDevice, nickname: string) => void;
+  onToggleTrusted: (device: ConnectedDevice) => void;
   onUpdateGlobalLimit: (limit: DataLimit) => void;
   onStartTimer: (durationMinutes: number) => void;
   onStopTimer: () => void;
-  onAddSchedule: () => void;
-  onAddPlan: (deviceId: string) => void;
+  onAddPolicy: (deviceId?: string) => void;
+  onToggleAutomationProfile: (profile: AutomationProfile) => void;
   onUpgradePress: () => void;
 }
 
 const tabs: {label: string; key: AppScreenKey; premium?: boolean}[] = [
-  {label: 'Overview', key: 'overview'},
+  {label: 'Dashboard', key: 'dashboard'},
   {label: 'Devices', key: 'devices'},
   {label: 'Limits', key: 'limits'},
-  {label: 'Timer', key: 'timer'},
-  {label: 'Schedule', key: 'schedules', premium: true},
-  {label: 'Reports', key: 'reports', premium: true},
-  {label: 'Plans', key: 'plans', premium: true},
+  {label: 'Automations', key: 'automations', premium: true},
+  {label: 'Insights', key: 'insights', premium: true},
 ];
 
 export const AppNavigator: React.FC<AppNavigatorProps> = props => {
   const renderScreen = () => {
     switch (props.activeScreen) {
-      case 'overview':
+      case 'dashboard':
         return (
-          <OverviewScreen
+          <DashboardScreen
             capability={props.capability}
             premiumActive={props.premiumActive}
+            hotspotStatus={props.hotspotStatus}
             globalUsageBytes={props.globalUsageBytes}
             globalLimit={props.globalLimit}
+            timer={props.timer}
+            nowMs={props.nowMs}
+            activity={props.activity}
+            onStartTimer={props.onStartTimer}
+            onStopTimer={props.onStopTimer}
+            onToggleHotspot={props.onToggleHotspot}
+            onCaptureUsage={props.onCaptureUsage}
+            onUpgradePress={props.onUpgradePress}
           />
         );
       case 'devices':
@@ -72,53 +92,38 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
             devices={props.devices}
             canBlockClients={props.capability.canBlockClients}
             onToggleBlock={props.onToggleDeviceBlock}
+            onRenameDevice={props.onRenameDevice}
+            onToggleTrusted={props.onToggleTrusted}
           />
         );
       case 'limits':
         return (
           <LimitsScreen
             limit={props.globalLimit}
+            hotspotStatus={props.hotspotStatus}
             globalUsageBytes={props.globalUsageBytes}
             onUpdateLimit={props.onUpdateGlobalLimit}
           />
         );
-      case 'timer':
+      case 'automations':
         return (
-          <TimerScreen
-            timer={props.timer}
-            nowMs={props.nowMs}
-            onStart={props.onStartTimer}
-            onStop={props.onStopTimer}
-          />
-        );
-      case 'schedules':
-        return (
-          <PremiumGate
-            premium={props.premiumActive}
-            onUpgrade={props.onUpgradePress}>
-            <SchedulesScreen
-              schedules={props.schedules}
-              onAddSchedule={props.onAddSchedule}
+          <PremiumGate premium={props.premiumActive} onUpgrade={props.onUpgradePress}>
+            <AutomationsScreen
+              devices={props.devices}
+              policies={props.policies}
+              automationProfiles={props.automationProfiles}
+              onAddPolicy={props.onAddPolicy}
+              onToggleAutomationProfile={props.onToggleAutomationProfile}
             />
           </PremiumGate>
         );
-      case 'reports':
+      case 'insights':
         return (
-          <PremiumGate
-            premium={props.premiumActive}
-            onUpgrade={props.onUpgradePress}>
-            <ReportsScreen reports={props.reports} />
-          </PremiumGate>
-        );
-      case 'plans':
-        return (
-          <PremiumGate
-            premium={props.premiumActive}
-            onUpgrade={props.onUpgradePress}>
-            <PlansScreen
-              devices={props.devices}
-              plans={props.plans}
-              onAddPlan={props.onAddPlan}
+          <PremiumGate premium={props.premiumActive} onUpgrade={props.onUpgradePress}>
+            <InsightsScreen
+              summary={props.insightsSummary}
+              usageCsv={props.usageCsv}
+              backupPayload={props.backupPayload}
             />
           </PremiumGate>
         );
@@ -131,7 +136,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
     <View style={appStyles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>Hotspot Manager</Text>
-        <Text style={styles.subtitle}>Android-first capability-tiered control</Text>
+        <Text style={styles.subtitle}>
+          Android-first control with honest compatibility fallbacks
+        </Text>
       </View>
       <ScrollView
         horizontal
@@ -152,7 +159,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
               ]}>
               <Text style={active ? styles.tabTextActive : styles.tabText}>
                 {tab.label}
-                {locked ? ' *' : ''}
+                {locked ? ' Pro' : ''}
               </Text>
             </Pressable>
           );
@@ -167,7 +174,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
     backgroundColor: '#101b35',
   },
   title: {
@@ -179,21 +186,21 @@ const styles = StyleSheet.create({
     color: '#bcd0ff',
   },
   tabScroll: {
-    maxHeight: 52,
+    maxHeight: 56,
     borderBottomWidth: 1,
     borderBottomColor: '#d5dbef',
-    backgroundColor: '#f2f5ff',
+    backgroundColor: '#eef2fb',
   },
   tabRow: {
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   tab: {
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#cbd5ff',
-    backgroundColor: '#e8eeff',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -202,7 +209,7 @@ const styles = StyleSheet.create({
     borderColor: '#1a58d9',
   },
   tabLocked: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
   tabText: {
     color: '#2f427f',

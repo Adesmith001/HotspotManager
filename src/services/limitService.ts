@@ -4,6 +4,7 @@ export interface LimitStatus {
   usedBytes: number;
   remainingBytes: number;
   exceeded: boolean;
+  warningReached: boolean;
 }
 
 export const evaluateLimit = (
@@ -15,5 +16,7 @@ export const evaluateLimit = (
     usedBytes,
     remainingBytes,
     exceeded: usedBytes >= limit.byteLimit,
+    warningReached:
+      usedBytes >= Math.floor(limit.byteLimit * (limit.warningThresholdPct / 100)),
   };
 };
