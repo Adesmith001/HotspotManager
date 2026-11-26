@@ -1,63 +1,87 @@
-import React, {useEffect, useState} from 'react';
-import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, { useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import {ConnectedDevice} from '../types/domain';
+import { ConnectedDevice } from '../types/domain';
 
 interface DevicesScreenProps {
   devices: ConnectedDevice[];
   canBlockClients: boolean;
+  busy: boolean;
+  onAddDevice: (name: string) => Promise<boolean>;
+  onLogUsage: (device: ConnectedDevice, bytes: number) => Promise<boolean>;
   onToggleBlock: (device: ConnectedDevice) => void;
   onRenameDevice: (device: ConnectedDevice, nickname: string) => void;
   onToggleTrusted: (device: ConnectedDevice) => void;
 }
 
-const formatLastSeen = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleString();
-};
-
 export const DevicesScreen: React.FC<DevicesScreenProps> = ({
   devices,
   canBlockClients,
+  busy,
+  onAddDevice,
+  onLogUsage,
   onToggleBlock,
   onRenameDevice,
   onToggleTrusted,
 }) => {
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(
-    devices[0]?.id ?? null,
-  );
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const selectedDevice =
-    devices.find(device => device.id === selectedDeviceId) ?? devices[0] ?? null;
-  const [nicknameInput, setNicknameInput] = useState(selectedDevice?.nickname ?? '');
+    devices.find(device => device.id === selectedDeviceId) ??
+    devices[0] ??
+    null;
+  const [nameInput, setNameInput] = useState('');
+  const [usageInput, setUsageInput] = useState('');
+  const [nicknameInput, setNicknameInput] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSelectedDeviceId(current => current ?? devices[0]?.id ?? null);
-  }, [devices]);
+  const addDevice = async () => {
+    const name = nameInput.trim();
+    if (!name) {
+      Alert.alert('Enter a device name.');
+      return;
+    }
+    if (await onAddDevice(name)) {
+      setNameInput('');
+    }
+  };
 
-  useEffect(() => {
-    setNicknameInput(selectedDevice?.nickname ?? '');
-  }, [selectedDevice?.id, selectedDevice?.nickname]);
-
-  if (devices.length === 0) {
-    return (
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyTitle}>No hotspot devices detected</Text>
-        <Text style={styles.emptyText}>
-          Connect a client or refresh the hotspot session to build your device roster.
-        </Text>
-      </View>
-    );
-  }
+  const logUsage = async (device: ConnectedDevice) => {
+    const bytes = Math.round(Number(usageInput.replace(',', '.')) * 1024 ** 2);
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      Alert.alert('Enter a positive amount in MiB.');
+      return;
+    }
+    if (await onLogUsage(device, bytes)) {
+      setUsageInput('');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {!canBlockClients ? (
-        <View style={styles.warning}>
-          <Text style={styles.warningTitle}>Manual fallback required</Text>
-          <Text style={styles.warningText}>
-            This device can track clients but cannot enforce native block actions.
-          </Text>
-        </View>
-      ) : null}
+      <View style={styles.detailCard}>
+        <Text style={styles.detailTitle}>Tracked devices</Text>
+        <Text style={styles.detailMeta}>
+          Add a device to keep a record of its hotspot data usage.
+        </Text>
+        <TextInput
+          accessibilityLabel="Device name"
+          value={nameInput}
+          onChangeText={setNameInput}
+          maxLength={80}
+          placeholder="Device name"
+          placeholderTextColor="#65708f"
+          style={styles.input}
+        />
+        <Pressable disabled={busy} onPress={addDevice} style={styles.button}>
+          <Text style={styles.buttonText}>Add device</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.list}>
         {devices.map(device => {
@@ -65,18 +89,22 @@ export const DevicesScreen: React.FC<DevicesScreenProps> = ({
           return (
             <Pressable
               key={device.id}
-              onPress={() => setSelectedDeviceId(device.id)}
-              style={[styles.deviceCard, active ? styles.deviceCardActive : undefined]}>
+              onPress={() => {
+                setSelectedDeviceId(device.id);
+                setNicknameInput(null);
+                setUsageInput('');
+              }}
+              style={[
+                styles.deviceCard,
+                active ? styles.deviceCardActive : undefined,
+              ]}
+            >
               <View style={styles.deviceHeader}>
                 <Text style={styles.deviceName}>
                   {device.nickname || device.displayName}
                 </Text>
                 <Text style={styles.deviceStatus}>{device.policyStatus}</Text>
               </View>
-              <Text style={styles.deviceMeta}>
-                {device.vendor || 'Unknown vendor'} • Seen {device.connectionCount} times
-              </Text>
-              <Text style={styles.deviceMeta}>Last seen: {formatLastSeen(device.lastSeenAt)}</Text>
             </Pressable>
           );
         })}
@@ -84,19 +112,34 @@ export const DevicesScreen: React.FC<DevicesScreenProps> = ({
 
       {selectedDevice ? (
         <View style={styles.detailCard}>
-          <Text style={styles.detailTitle}>Device detail</Text>
-          <Text style={styles.detailMeta}>Hardware name: {selectedDevice.displayName}</Text>
-          <Text style={styles.detailMeta}>
-            IP / MAC: {selectedDevice.ipAddress || 'n/a'} /{' '}
-            {selectedDevice.macAddress || selectedDevice.id}
+          <Text style={styles.detailTitle}>
+            {selectedDevice.nickname || selectedDevice.displayName}
           </Text>
           <Text style={styles.detailMeta}>
-            Trusted: {selectedDevice.trusted ? 'yes' : 'no'} • Policy: {selectedDevice.policyStatus}
+            Log the amount used since your last entry.
           </Text>
-
           <TextInput
-            value={nicknameInput}
+            accessibilityLabel="Data used in MiB"
+            value={usageInput}
+            onChangeText={setUsageInput}
+            placeholder="Data used (MiB)"
+            placeholderTextColor="#65708f"
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <Pressable
+            disabled={busy}
+            onPress={() => logUsage(selectedDevice)}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>Save usage</Text>
+          </Pressable>
+          <Text style={styles.detailMeta}>Device settings</Text>
+          <TextInput
+            accessibilityLabel="Nickname"
+            value={nicknameInput ?? selectedDevice.nickname ?? ''}
             onChangeText={setNicknameInput}
+            maxLength={80}
             placeholder="Nickname"
             placeholderTextColor="#7d85a2"
             style={styles.input}
@@ -104,26 +147,42 @@ export const DevicesScreen: React.FC<DevicesScreenProps> = ({
 
           <View style={styles.row}>
             <Pressable
-              onPress={() => onRenameDevice(selectedDevice, nicknameInput.trim())}
-              style={styles.button}>
+              disabled={busy}
+              onPress={() =>
+                onRenameDevice(
+                  selectedDevice,
+                  (nicknameInput ?? selectedDevice.nickname ?? '').trim(),
+                )
+              }
+              style={styles.button}
+            >
               <Text style={styles.buttonText}>Save Nickname</Text>
             </Pressable>
             <Pressable
+              disabled={busy}
               onPress={() => onToggleTrusted(selectedDevice)}
-              style={styles.subtleButton}>
+              style={styles.subtleButton}
+            >
               <Text style={styles.subtleButtonText}>
                 {selectedDevice.trusted ? 'Remove Trust' : 'Mark Trusted'}
               </Text>
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={() => onToggleBlock(selectedDevice)}
-            style={selectedDevice.blocked ? styles.unblockButton : styles.blockButton}>
-            <Text style={styles.buttonText}>
-              {selectedDevice.blocked ? 'Unblock Device' : 'Block Device'}
-            </Text>
-          </Pressable>
+          {canBlockClients ? (
+            <Pressable
+              onPress={() => onToggleBlock(selectedDevice)}
+              style={
+                selectedDevice.blocked
+                  ? styles.unblockButton
+                  : styles.blockButton
+              }
+            >
+              <Text style={styles.buttonText}>
+                {selectedDevice.blocked ? 'Unblock Device' : 'Block Device'}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -133,21 +192,6 @@ export const DevicesScreen: React.FC<DevicesScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     gap: 12,
-  },
-  warning: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f1ca7a',
-    backgroundColor: '#fff7e1',
-    padding: 12,
-  },
-  warningTitle: {
-    fontWeight: '800',
-    color: '#715300',
-    marginBottom: 4,
-  },
-  warningText: {
-    color: '#715300',
   },
   list: {
     gap: 10,
@@ -181,10 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'capitalize',
-  },
-  deviceMeta: {
-    color: '#5d637f',
-    fontSize: 12,
   },
   detailCard: {
     borderRadius: 16,
@@ -250,20 +290,5 @@ const styles = StyleSheet.create({
   subtleButtonText: {
     color: '#2b56ce',
     fontWeight: '800',
-  },
-  emptyCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#dce1f1',
-    backgroundColor: '#ffffff',
-    padding: 16,
-  },
-  emptyTitle: {
-    fontWeight: '800',
-    color: '#20253a',
-    marginBottom: 6,
-  },
-  emptyText: {
-    color: '#576182',
   },
 });

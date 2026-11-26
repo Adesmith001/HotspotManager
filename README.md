@@ -1,69 +1,46 @@
-# Hotspot Manager (Capability-Tiered)
+# Hotspot Manager
 
-Bare React Native app for managing a personal hotspot with Android-first native control and iOS compatibility mode.
+A React Native app for tracking personal hotspot data on Android and iOS. Add devices and log their usage manually. The app stores the device list, budgets, and history locally.
 
-## Free Features
+- **Free** includes device tracking, daily, weekly and monthly budgets, activity, and a timer reminder. Weekly budgets start on Monday. The reminder appears in the app at expiry or when you return.
+- **Pro** adds per-device caps, scheduled budgets, reminders, per-device reports, and CSV and JSON sharing. Schedules use local time. A device schedule sets that device's cap during its active window.
 
-- Device management: view connected devices, block/unblock
-- Basic data limit settings
-- Hotspot timer
+Use system settings to start or stop the hotspot and manage connections. Android provides a shortcut to network settings. On iPhone, open **Settings → Personal Hotspot**.
 
-## Premium Features
+## Test builds
 
-- Specific data scheduling
-- Detailed per-device usage reports
-- Custom data plans for connected users
+The **Mobile test builds** GitHub Actions workflow builds an Android test APK and an iOS Simulator app on pull requests. You can also run it manually once the workflow is available on the default branch. Both builds bundle JavaScript and run without Metro.
 
-Premium access is controlled by RevenueCat entitlement: `premium`.
+### Android
 
-## Architecture Summary
+With Node 22.11+, a JDK 17 installation, and the Android SDK configured, run:
 
-- Capability tiers:
-  - Tier A: full native control
-  - Tier B: partial control with fallback guidance
-  - Tier C: compatibility mode
-- State: Redux Toolkit (`hotspot` + `subscription` slices)
-- Persistence: SQLite migrations/repositories
-- Billing: RevenueCat (`react-native-purchases`)
-- Native Android bridge: `android/app/src/main/java/com/hotspotmanager/hotspot`
-
-## Configure RevenueCat
-
-Set API keys in [revenueCat.ts](C:/Users/USER/Downloads/Documents/Codes/hotspot-manager/HotspotManager/src/config/revenueCat.ts):
-
-- `REVENUECAT_ANDROID_API_KEY`
-- `REVENUECAT_IOS_API_KEY`
-
-Create an entitlement named `premium` and attach your products/packages in RevenueCat.
-
-## Run
-
-```bash
-npm install
-npm start
+```powershell
+npm ci
+cd android
+.\gradlew.bat :app:assembleRelease "-PreactNativeArchitectures=arm64-v8a,x86_64"
 ```
 
-In a second terminal:
+Install `android/app/build/outputs/apk/release/app-release.apk` on an ARM64 phone or x86_64 emulator. This test APK uses the repository's debug signing key.
 
-```bash
-npm run android
+### iOS
+
+Download and extract the **HotspotManager-iOS-Simulator** artifact on a Mac with Xcode. Boot an iPhone simulator, then run:
+
+```sh
+xcrun simctl install booted /path/to/HotspotManager.app
 ```
 
-## Verify
+The Simulator artifact targets the architecture of its macOS runner. To build locally, run `npm ci` and `cd ios && pod install`, then open `HotspotManager.xcworkspace` in Xcode. Choose the **HotspotManager** scheme and an iPhone simulator. Use a registered development device or TestFlight with your Apple signing configuration for a physical iPhone.
 
-```bash
-npm test -- --watch=false
+## RevenueCat
+
+Set the platform SDK keys in [src/config/revenueCat.ts](src/config/revenueCat.ts). Attach the store products to the `premium` entitlement and add them to the current offering. Use store sandbox accounts to test purchase and restore.
+
+## Checks
+
+```sh
+npm test -- --watch=false --runInBand
 npm run lint
 npx tsc --noEmit
 ```
-
-## Android Build Note
-
-`./gradlew.bat assembleDebug` requires Android SDK configuration:
-
-- Set `ANDROID_HOME`, or
-- add `sdk.dir=...` in `android/local.properties`.
-
-## iOS Note
-
-iOS hotspot system-level controls are restricted. The app runs in compatibility mode for unsupported actions while preserving scheduling/reporting/plan UX and billing state.

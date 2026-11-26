@@ -1,13 +1,14 @@
-import {NativeModules, Platform} from 'react-native';
+import { NativeModules } from 'react-native';
 
 import {
   ConnectedDevice,
   ControlAttemptResult,
   HotspotStatus,
 } from '../types/domain';
-import {NativeCapabilitySnapshot} from '../types/capabilities';
+import { NativeCapabilitySnapshot } from '../types/capabilities';
 
 interface HotspotNativeModule {
+  openNetworkSettings?: () => Promise<boolean>;
   getCapabilities?: () => Promise<NativeCapabilitySnapshot>;
   getConnectedDevices?: () => Promise<ConnectedDevice[]>;
   getHotspotStatus?: () => Promise<HotspotStatus>;
@@ -16,39 +17,32 @@ interface HotspotNativeModule {
   setHotspotEnabled?: (enabled: boolean) => Promise<ControlAttemptResult>;
 }
 
-const nativeModule: HotspotNativeModule | undefined = NativeModules.HotspotManager;
+const nativeModule: HotspotNativeModule | undefined =
+  NativeModules.HotspotManager;
 
 const fallbackCapabilities: NativeCapabilitySnapshot = {
   canToggleHotspot: false,
   canListClients: false,
   canBlockClients: false,
   canRunBackgroundAutomation: false,
-  canSendLocalNotifications: true,
-  canEstimateUsage: true,
+  canSendLocalNotifications: false,
+  canEstimateUsage: false,
   diagnostics: [
-    'Native hotspot controls are unavailable.',
-    'The app is running in compatibility mode.',
+    'Manage hotspot connections in system settings. Use this app to log usage and track budgets.',
   ],
 };
 
-export const getNativeCapabilities = async (): Promise<NativeCapabilitySnapshot> => {
-  if (nativeModule?.getCapabilities) {
-    return nativeModule.getCapabilities();
-  }
-  if (Platform.OS === 'ios') {
+export const getNativeCapabilities =
+  async (): Promise<NativeCapabilitySnapshot> => {
+    if (nativeModule?.getCapabilities) {
+      return nativeModule.getCapabilities();
+    }
     return fallbackCapabilities;
-  }
-  return {
-    ...fallbackCapabilities,
-    canListClients: true,
-    diagnostics: [
-      'Using compatibility discovery mode.',
-      'Hotspot toggling is unavailable on this device build.',
-    ],
   };
-};
 
-export const getNativeConnectedDevices = async (): Promise<ConnectedDevice[]> => {
+export const getNativeConnectedDevices = async (): Promise<
+  ConnectedDevice[]
+> => {
   if (nativeModule?.getConnectedDevices) {
     return nativeModule.getConnectedDevices();
   }
@@ -60,7 +54,7 @@ export const getNativeHotspotStatus = async (): Promise<HotspotStatus> => {
     return nativeModule.getHotspotStatus();
   }
   return {
-    enabled: true,
+    enabled: false,
     connectedDeviceCount: 0,
     sessionStartedAt: null,
     lastRefreshedAt: Date.now(),
@@ -107,3 +101,6 @@ export const nativeSetHotspotEnabled = async (
       : 'Hotspot stop is unavailable in compatibility mode.',
   };
 };
+
+export const openNetworkSettings = async (): Promise<boolean> =>
+  (await nativeModule?.openNetworkSettings?.()) ?? false;

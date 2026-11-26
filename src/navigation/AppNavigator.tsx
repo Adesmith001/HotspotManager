@@ -1,8 +1,10 @@
 import React from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import {PremiumGate} from '../components/PremiumGate';
-import {InsightsSummary} from '../services/insightsService';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { PremiumGate } from '../components/PremiumGate';
+import { InsightsSummary } from '../services/insightsService';
 import {
   ActivityEvent,
   AutomationProfile,
@@ -10,15 +12,15 @@ import {
   ConnectedDevice,
   DataLimit,
   DevicePolicy,
-  HotspotStatus,
   HotspotTimer,
+  ScheduleRule,
 } from '../types/domain';
-import {appStyles} from '../theme';
-import {AutomationsScreen} from '../screens/AutomationsScreen';
-import {DashboardScreen} from '../screens/DashboardScreen';
-import {DevicesScreen} from '../screens/DevicesScreen';
-import {InsightsScreen} from '../screens/InsightsScreen';
-import {LimitsScreen} from '../screens/LimitsScreen';
+import { appStyles } from '../theme';
+import { AutomationsScreen } from '../screens/AutomationsScreen';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { DevicesScreen } from '../screens/DevicesScreen';
+import { InsightsScreen } from '../screens/InsightsScreen';
+import { LimitsScreen } from '../screens/LimitsScreen';
 
 export type AppScreenKey =
   | 'dashboard'
@@ -32,7 +34,6 @@ interface AppNavigatorProps {
   setActiveScreen: (key: AppScreenKey) => void;
   capability: CapabilityState;
   premiumActive: boolean;
-  hotspotStatus: HotspotStatus;
   globalUsageBytes: number;
   globalLimit: DataLimit;
   devices: ConnectedDevice[];
@@ -41,28 +42,33 @@ interface AppNavigatorProps {
   policies: DevicePolicy[];
   automationProfiles: AutomationProfile[];
   insightsSummary: InsightsSummary;
-  usageCsv: string;
-  backupPayload: string;
+  schedules: ScheduleRule[];
+  getUsageCsv: () => string;
+  getBackupPayload: () => string;
+  busy: boolean;
   nowMs: number;
-  onToggleHotspot: (enabled: boolean) => void;
-  onCaptureUsage: () => void;
+  onOpenSettings: () => void;
+  onAddDevice: (name: string) => Promise<boolean>;
+  onLogUsage: (device: ConnectedDevice, bytes: number) => Promise<boolean>;
   onToggleDeviceBlock: (device: ConnectedDevice) => void;
   onRenameDevice: (device: ConnectedDevice, nickname: string) => void;
   onToggleTrusted: (device: ConnectedDevice) => void;
   onUpdateGlobalLimit: (limit: DataLimit) => void;
   onStartTimer: (durationMinutes: number) => void;
   onStopTimer: () => void;
-  onAddPolicy: (deviceId?: string) => void;
+  onSavePolicy: (policy: DevicePolicy) => void;
+  onSaveSchedules: (schedules: ScheduleRule[]) => void;
   onToggleAutomationProfile: (profile: AutomationProfile) => void;
   onUpgradePress: () => void;
+  onRestorePress: () => void;
 }
 
-const tabs: {label: string; key: AppScreenKey; premium?: boolean}[] = [
-  {label: 'Dashboard', key: 'dashboard'},
-  {label: 'Devices', key: 'devices'},
-  {label: 'Limits', key: 'limits'},
-  {label: 'Automations', key: 'automations', premium: true},
-  {label: 'Insights', key: 'insights', premium: true},
+const tabs: { label: string; key: AppScreenKey; premium?: boolean }[] = [
+  { label: 'Dashboard', key: 'dashboard' },
+  { label: 'Devices', key: 'devices' },
+  { label: 'Limits', key: 'limits' },
+  { label: 'Automations', key: 'automations', premium: true },
+  { label: 'Insights', key: 'insights', premium: true },
 ];
 
 export const AppNavigator: React.FC<AppNavigatorProps> = props => {
@@ -73,7 +79,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
           <DashboardScreen
             capability={props.capability}
             premiumActive={props.premiumActive}
-            hotspotStatus={props.hotspotStatus}
             globalUsageBytes={props.globalUsageBytes}
             globalLimit={props.globalLimit}
             timer={props.timer}
@@ -81,8 +86,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
             activity={props.activity}
             onStartTimer={props.onStartTimer}
             onStopTimer={props.onStopTimer}
-            onToggleHotspot={props.onToggleHotspot}
-            onCaptureUsage={props.onCaptureUsage}
+            onOpenSettings={props.onOpenSettings}
+            onLogUsage={() => props.setActiveScreen('devices')}
             onUpgradePress={props.onUpgradePress}
           />
         );
@@ -91,6 +96,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
           <DevicesScreen
             devices={props.devices}
             canBlockClients={props.capability.canBlockClients}
+            busy={props.busy}
+            onAddDevice={props.onAddDevice}
+            onLogUsage={props.onLogUsage}
             onToggleBlock={props.onToggleDeviceBlock}
             onRenameDevice={props.onRenameDevice}
             onToggleTrusted={props.onToggleTrusted}
@@ -100,30 +108,42 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
         return (
           <LimitsScreen
             limit={props.globalLimit}
-            hotspotStatus={props.hotspotStatus}
             globalUsageBytes={props.globalUsageBytes}
             onUpdateLimit={props.onUpdateGlobalLimit}
           />
         );
       case 'automations':
         return (
-          <PremiumGate premium={props.premiumActive} onUpgrade={props.onUpgradePress}>
+          <PremiumGate
+            premium={props.premiumActive}
+            onUpgrade={props.onUpgradePress}
+            onRestore={props.onRestorePress}
+            busy={props.busy}
+          >
             <AutomationsScreen
               devices={props.devices}
               policies={props.policies}
               automationProfiles={props.automationProfiles}
-              onAddPolicy={props.onAddPolicy}
+              schedules={props.schedules}
+              busy={props.busy}
+              onSavePolicy={props.onSavePolicy}
+              onSaveSchedules={props.onSaveSchedules}
               onToggleAutomationProfile={props.onToggleAutomationProfile}
             />
           </PremiumGate>
         );
       case 'insights':
         return (
-          <PremiumGate premium={props.premiumActive} onUpgrade={props.onUpgradePress}>
+          <PremiumGate
+            premium={props.premiumActive}
+            onUpgrade={props.onUpgradePress}
+            onRestore={props.onRestorePress}
+            busy={props.busy}
+          >
             <InsightsScreen
               summary={props.insightsSummary}
-              usageCsv={props.usageCsv}
-              backupPayload={props.backupPayload}
+              getUsageCsv={props.getUsageCsv}
+              getBackupPayload={props.getBackupPayload}
             />
           </PremiumGate>
         );
@@ -133,30 +153,34 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
   };
 
   return (
-    <View style={appStyles.screen}>
+    <SafeAreaView
+      edges={['top', 'bottom', 'left', 'right']}
+      style={appStyles.screen}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Hotspot Manager</Text>
-        <Text style={styles.subtitle}>
-          Android-first control with honest compatibility fallbacks
-        </Text>
       </View>
       <ScrollView
         horizontal
         style={styles.tabScroll}
         contentContainerStyle={styles.tabRow}
-        showsHorizontalScrollIndicator={false}>
+        showsHorizontalScrollIndicator={false}
+      >
         {tabs.map(tab => {
           const locked = tab.premium && !props.premiumActive;
           const active = tab.key === props.activeScreen;
           return (
             <Pressable
               key={tab.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
               onPress={() => props.setActiveScreen(tab.key)}
               style={[
                 styles.tab,
                 active ? styles.tabActive : undefined,
                 locked ? styles.tabLocked : undefined,
-              ]}>
+              ]}
+            >
               <Text style={active ? styles.tabTextActive : styles.tabText}>
                 {tab.label}
                 {locked ? ' Pro' : ''}
@@ -165,8 +189,14 @@ export const AppNavigator: React.FC<AppNavigatorProps> = props => {
           );
         })}
       </ScrollView>
-      <ScrollView contentContainerStyle={appStyles.content}>{renderScreen()}</ScrollView>
-    </View>
+      <ScrollView
+        key={props.activeScreen}
+        contentContainerStyle={appStyles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {renderScreen()}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -181,9 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: '#ffffff',
-  },
-  subtitle: {
-    color: '#bcd0ff',
   },
   tabScroll: {
     maxHeight: 56,

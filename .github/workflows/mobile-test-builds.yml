@@ -1,0 +1,57 @@
+name: Mobile test builds
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [codex/mobile-test-builds]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.1.12297006'
+      - run: bash ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HotspotManager-Android-test
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+  ios-simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: pod install
+        working-directory: ios
+      - name: Build standalone simulator app
+        run: |
+          xcodebuild -workspace ios/HotspotManager.xcworkspace -scheme HotspotManager \
+            -configuration Release -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" build
+          ditto -c -k --keepParent ios/build/Build/Products/Release-iphonesimulator/HotspotManager.app HotspotManager-iOS-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HotspotManager-iOS-Simulator
+          path: HotspotManager-iOS-Simulator.zip
+          if-no-files-found: error

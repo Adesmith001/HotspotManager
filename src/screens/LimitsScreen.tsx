@@ -1,25 +1,32 @@
-import React, {useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import {evaluateLimit} from '../services/limitService';
-import {DataLimit, HotspotStatus} from '../types/domain';
-import {formatBytes} from '../utils/format';
+import { evaluateLimit } from '../services/limitService';
+import { DataLimit } from '../types/domain';
+import { formatBytes } from '../utils/format';
 
 interface LimitsScreenProps {
   limit: DataLimit;
-  hotspotStatus: HotspotStatus;
   globalUsageBytes: number;
   onUpdateLimit: (limit: DataLimit) => void;
 }
 
 export const LimitsScreen: React.FC<LimitsScreenProps> = ({
   limit,
-  hotspotStatus,
   globalUsageBytes,
   onUpdateLimit,
 }) => {
-  const [gbInput, setGbInput] = useState((limit.byteLimit / 1024 ** 3).toFixed(1));
-  const [warningInput, setWarningInput] = useState(String(limit.warningThresholdPct));
+  const [gbInput, setGbInput] = useState(String(limit.byteLimit / 1024 ** 3));
+  const [warningInput, setWarningInput] = useState(
+    String(limit.warningThresholdPct),
+  );
   const status = useMemo(
     () => evaluateLimit(limit, globalUsageBytes),
     [globalUsageBytes, limit],
@@ -28,15 +35,18 @@ export const LimitsScreen: React.FC<LimitsScreenProps> = ({
   const saveLimit = () => {
     const asNumber = Number(gbInput);
     const warning = Number(warningInput);
-    if (!Number.isFinite(asNumber) || asNumber <= 0) {
+    const bytes = Math.floor(asNumber * 1024 ** 3);
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      Alert.alert('Enter a positive data cap in GiB.');
       return;
     }
-    if (!Number.isFinite(warning) || warning < 1 || warning > 100) {
+    if (!Number.isInteger(warning) || warning < 1 || warning > 100) {
+      Alert.alert('Enter a warning threshold from 1 to 100.');
       return;
     }
     onUpdateLimit({
       ...limit,
-      byteLimit: Math.floor(asNumber * 1024 ** 3),
+      byteLimit: bytes,
       warningThresholdPct: warning,
     });
   };
@@ -49,45 +59,50 @@ export const LimitsScreen: React.FC<LimitsScreenProps> = ({
           Used {formatBytes(status.usedBytes)} of {formatBytes(limit.byteLimit)}
         </Text>
         <Text style={styles.heroText}>
-          Remaining {formatBytes(status.remainingBytes)} •{' '}
+          Remaining {formatBytes(status.remainingBytes)} â€¢{' '}
           {status.exceeded
             ? 'Exceeded'
             : status.warningReached
-              ? 'Warning reached'
-              : 'Healthy'}
+            ? 'Warning reached'
+            : 'Healthy'}
         </Text>
         <Text style={styles.heroCaption}>
-          Hotspot currently {hotspotStatus.enabled ? 'running' : 'stopped'} with{' '}
-          {hotspotStatus.connectedDeviceCount} connected device(s).
+          Usage comes from entries you log in Devices.
         </Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.title}>Period</Text>
         <View style={styles.row}>
-          {(['daily', 'weekly', 'monthly'] as DataLimit['periodType'][]).map(period => (
-            <Pressable
-              key={period}
-              onPress={() => onUpdateLimit({...limit, periodType: period})}
-              style={[
-                styles.periodButton,
-                limit.periodType === period ? styles.periodButtonActive : undefined,
-              ]}>
-              <Text
-                style={
+          {(['daily', 'weekly', 'monthly'] as DataLimit['periodType'][]).map(
+            period => (
+              <Pressable
+                key={period}
+                onPress={() => onUpdateLimit({ ...limit, periodType: period })}
+                style={[
+                  styles.periodButton,
                   limit.periodType === period
-                    ? styles.periodTextActive
-                    : styles.periodText
-                }>
-                {period}
-              </Text>
-            </Pressable>
-          ))}
+                    ? styles.periodButtonActive
+                    : undefined,
+                ]}
+              >
+                <Text
+                  style={
+                    limit.periodType === period
+                      ? styles.periodTextActive
+                      : styles.periodText
+                  }
+                >
+                  {period}
+                </Text>
+              </Pressable>
+            ),
+          )}
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.title}>Byte cap (GB)</Text>
+        <Text style={styles.title}>Data cap (GiB)</Text>
         <TextInput
           value={gbInput}
           onChangeText={setGbInput}

@@ -1,5 +1,11 @@
-import {evaluatePolicies} from '../policyEngineService';
-import {CapabilityState, ConnectedDevice, DataLimit, DevicePolicy, UsageSnapshot} from '../../types/domain';
+import { evaluatePolicies } from '../policyEngineService';
+import {
+  CapabilityState,
+  ConnectedDevice,
+  DataLimit,
+  DevicePolicy,
+  UsageSnapshot,
+} from '../../types/domain';
 
 describe('policy engine service', () => {
   const capability: CapabilityState = {
@@ -19,7 +25,7 @@ describe('policy engine service', () => {
     hardStopEnabled: false,
   };
 
-  it('blocks an untrusted device that exceeds its cap', () => {
+  it('requests a block without changing access before native confirmation', () => {
     const devices: ConnectedDevice[] = [
       {
         id: 'device-1',
@@ -52,7 +58,7 @@ describe('policy engine service', () => {
       {
         id: 'usage-1',
         deviceId: 'device-1',
-        timestamp: 200,
+        timestamp: new Date('2026-05-22T18:00:00Z').getTime(),
         bytesUsed: 1200,
         periodKey: '2026-05-22',
         source: 'estimated',
@@ -68,8 +74,8 @@ describe('policy engine service', () => {
       now: new Date('2026-05-22T18:30:00Z'),
     });
 
-    expect(result.deviceUpdates[0].blocked).toBe(true);
-    expect(result.deviceUpdates[0].policyStatus).toBe('blocked');
+    expect(result.deviceUpdates[0].blocked).toBe(false);
+    expect(result.deviceUpdates[0].policyStatus).toBe('warning');
     expect(result.actions[0]).toMatchObject({
       type: 'blockDevice',
       deviceId: 'device-1',
@@ -110,7 +116,7 @@ describe('policy engine service', () => {
       {
         id: 'usage-2',
         deviceId: 'device-2',
-        timestamp: 200,
+        timestamp: new Date('2026-05-22T18:00:00Z').getTime(),
         bytesUsed: 3000,
         periodKey: '2026-05-22',
         source: 'estimated',
