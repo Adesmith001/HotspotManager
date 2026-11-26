@@ -433,7 +433,7 @@ const HotspotManagerApp = () => {
   if (!ready) {
     return (
       <Text
-        style={{ marginTop: 80, padding: 24, color: '#20253a' }}
+        style={styles.setup}
         onPress={
           setupError
             ? () => {
