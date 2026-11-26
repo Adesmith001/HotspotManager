@@ -1,34 +1,11 @@
-# Hotspot Manager Test Matrix
+# Hotspot Manager test matrix
 
-## Automated
+## Android and iOS smoke tests
 
-- `npm test -- --watch=false`
-- `npm run lint`
-- `npx tsc --noEmit`
-
-## Manual Android Matrix
-
-- Android 12, 13, 14, 15
-- Pixel (AOSP-like), Samsung One UI, Xiaomi/MIUI
-- Validate:
-  - Capability tier detection (A/B/C)
-  - Connected device list
-  - Block/unblock actions
-  - Basic data limits
-  - Hotspot timer behavior
-  - Premium gating and purchase/restore flow
-  - Scheduling and plan enforcement UI states
-
-## Manual iOS Matrix
-
-- iOS 17+
-- Validate:
-  - Compatibility mode messaging
-  - Premium entitlement sync state
-  - Premium screen gating
-  - Reports and custom plans UI behavior
-
-## Failure Logging
-
-- Capture device model, OS version, capability tier, and failing action.
-- Include whether fallback/manual path was offered.
+- Launch the standalone test build without Metro. Confirm a fresh install opens with no tracked devices.
+- Add a device, rename it, mark it trusted, and log 100 MiB of usage. Reopen the app and confirm the data persists.
+- Switch between daily, weekly, and monthly budgets and change the cap. Verify that logged usage appears in the correct calendar period and that threshold events appear in Activity.
+- Start and stop the timer. Confirm an expired timer records an event and shows a reminder on returning to the app.
+- Open Hotspot settings. Confirm Android opens network settings and iOS shows the Settings path.
+- With RevenueCat sandbox products configured, purchase and restore Pro. Create a device cap and a scheduled budget. Log usage above each cap and confirm the corresponding activity event. Share the CSV and JSON from Insights.
+- When upgrading from an earlier build, check that the sample devices and their usage are absent and that saved limits and timer settings persist.

@@ -3,6 +3,8 @@ import {
   AutomationProfile,
   ConnectedDevice,
   DevicePolicy,
+  DataLimit,
+  ScheduleRule,
   UsageSnapshot,
 } from '../types/domain';
 
@@ -21,7 +23,15 @@ export const buildUsageCsv = (
         snapshot.timestamp,
         snapshot.bytesUsed,
         snapshot.source,
-      ].join(','),
+      ]
+        .map(value => {
+          if (typeof value === 'number') {
+            return String(value);
+          }
+          const cell = /^[=+@\-\t\r\n]/.test(value) ? "'" + value : value;
+          return '"' + cell.replace(/"/g, '""') + '"';
+        })
+        .join(','),
     );
   }
 
@@ -34,6 +44,8 @@ export const buildBackupPayload = (input: {
   activity: ActivityEvent[];
   policies: DevicePolicy[];
   automationProfiles: AutomationProfile[];
+  schedules: ScheduleRule[];
+  globalLimit: DataLimit;
 }): string => {
   return JSON.stringify(input, null, 2);
 };

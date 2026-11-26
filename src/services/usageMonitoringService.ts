@@ -1,15 +1,29 @@
-import {ConnectedDevice, UsageSnapshot} from '../types/domain';
+import { DataLimit, UsageSnapshot } from '../types/domain';
 
-export const createEstimatedUsageSnapshots = (
-  devices: ConnectedDevice[],
-  timestamp: number,
-): UsageSnapshot[] => {
-  return devices.map(device => ({
-    id: `usage-${device.id}-${timestamp}`,
-    deviceId: device.id,
-    timestamp,
-    bytesUsed: Math.max(device.connectionCount, 1) * 125 * 1024 * 1024,
-    periodKey: new Date(timestamp).toISOString().slice(0, 10),
-    source: 'estimated',
-  }));
+export const getBudgetStart = (
+  period: DataLimit['periodType'],
+  now: Date,
+): Date => {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === 'weekly') {
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  } else if (period === 'monthly') {
+    start.setDate(1);
+  }
+  return start;
+};
+
+export const getBudgetUsage = (
+  usage: UsageSnapshot[],
+  period: DataLimit['periodType'],
+  now: Date,
+): number => {
+  const start = getBudgetStart(period, now).getTime();
+  return usage.reduce(
+    (sum, entry) =>
+      entry.timestamp >= start && entry.timestamp <= now.getTime()
+        ? sum + entry.bytesUsed
+        : sum,
+    0,
+  );
 };

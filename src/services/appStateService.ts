@@ -1,7 +1,11 @@
-import {appendActivity} from './activityService';
-import {runMigrations} from '../db';
-import {getActivityEvents, addActivityEvent} from '../db/repositories/activityRepository';
-import {getDevices, upsertDevice} from '../db/repositories/deviceRepository';
+import { isSampleDevice } from './deviceService';
+import { appendActivity } from './activityService';
+import { runMigrations } from '../db';
+import {
+  getActivityEvents,
+  addActivityEvent,
+} from '../db/repositories/activityRepository';
+import { getDevices, upsertDevice } from '../db/repositories/deviceRepository';
 import {
   getAutomationProfiles,
   getDevicePolicies,
@@ -27,6 +31,7 @@ import {
   DevicePolicy,
   HotspotStatus,
   HotspotTimer,
+  ScheduleRule,
   UsageSnapshot,
 } from '../types/domain';
 
@@ -36,6 +41,7 @@ export interface HydratedAppState {
   activity: ActivityEvent[];
   policies: DevicePolicy[];
   automationProfiles: AutomationProfile[];
+  schedules: ScheduleRule[];
   settings: AppSettings;
   globalLimit: DataLimit;
   timer: HotspotTimer | null;
@@ -50,7 +56,7 @@ export const defaultGlobalLimit: DataLimit = {
 };
 
 export const defaultHotspotStatus: HotspotStatus = {
-  enabled: true,
+  enabled: false,
   connectedDeviceCount: 0,
   sessionStartedAt: null,
   lastRefreshedAt: Date.now(),
@@ -97,17 +103,26 @@ const mergeDevices = (
     return persisted;
   }
 
-  return discovered.map(device => {
+  const merged = discovered.map(device => {
     const existing = persisted.find(entry => entry.id === device.id);
     return {
       ...device,
       nickname: existing?.nickname ?? device.nickname,
       trusted: existing?.trusted ?? device.trusted,
       firstSeenAt: existing?.firstSeenAt ?? device.firstSeenAt,
-      connectionCount: Math.max(existing?.connectionCount ?? 0, device.connectionCount),
+      connectionCount: Math.max(
+        existing?.connectionCount ?? 0,
+        device.connectionCount,
+      ),
       policyStatus: existing?.policyStatus ?? device.policyStatus,
     };
   });
+  return [
+    ...merged,
+    ...persisted.filter(
+      device => !discovered.some(entry => entry.id === device.id),
+    ),
+  ];
 };
 
 export const hydrateAppState = async (
@@ -115,22 +130,35 @@ export const hydrateAppState = async (
 ): Promise<HydratedAppState> => {
   await runMigrations();
 
-  const [persistedDevices, usageSnapshots, persistedActivity, storedPolicies, profiles, settings, appValues] =
-    await Promise.all([
-      getDevices(),
-      getUsageSnapshots(),
-      getActivityEvents(),
-      getDevicePolicies(),
-      getAutomationProfiles(),
-      getSettings(),
-      getAllAppValues(),
-    ]);
+  const [
+    persistedDevices,
+    usageSnapshots,
+    persistedActivity,
+    storedPolicies,
+    profiles,
+    settings,
+    appValues,
+  ] = await Promise.all([
+    getDevices(),
+    getUsageSnapshots(),
+    getActivityEvents(),
+    getDevicePolicies(),
+    getAutomationProfiles(),
+    getSettings(),
+    getAllAppValues(),
+  ]);
 
-  const devices = mergeDevices(persistedDevices, discoveredDevices);
-  const policies = storedPolicies.length > 0 ? storedPolicies : createDefaultPolicies();
+  const devices = mergeDevices(
+    persistedDevices.filter(device => !isSampleDevice(device.id)),
+    discoveredDevices,
+  );
+  const policies =
+    storedPolicies.length > 0 ? storedPolicies : createDefaultPolicies();
   const automationProfiles =
     profiles.length > 0 ? profiles : createDefaultAutomationProfiles();
-  let activity = [...persistedActivity];
+  let activity = persistedActivity.filter(
+    event => !event.deviceId || !isSampleDevice(event.deviceId),
+  );
 
   for (const device of devices) {
     const wasKnown = persistedDevices.some(entry => entry.id === device.id);
@@ -139,7 +167,9 @@ export const hydrateAppState = async (
         id: `activity-join-${device.id}`,
         type: 'deviceJoined',
         title: `${device.nickname || device.displayName} joined`,
-        details: `${device.nickname || device.displayName} was discovered on the hotspot.`,
+        details: `${
+          device.nickname || device.displayName
+        } was discovered on the hotspot.`,
         timestamp: device.lastSeenAt,
         severity: device.trusted ? 'info' : 'warning',
         deviceId: device.id,
@@ -147,14 +177,16 @@ export const hydrateAppState = async (
     }
   }
 
-  const globalLimit = (appValues.globalLimit as DataLimit | undefined) ?? defaultGlobalLimit;
+  const globalLimit =
+    (appValues.globalLimit as DataLimit | undefined) ?? defaultGlobalLimit;
   const timer = (appValues.timer as HotspotTimer | null | undefined) ?? null;
-  const hotspotStatus =
-    (appValues.hotspotStatus as HotspotStatus | undefined) ?? {
-      ...defaultHotspotStatus,
-      connectedDeviceCount: devices.length,
-      lastRefreshedAt: Date.now(),
-    };
+  const hotspotStatus = (appValues.hotspotStatus as
+    | HotspotStatus
+    | undefined) ?? {
+    ...defaultHotspotStatus,
+    connectedDeviceCount: discoveredDevices.length,
+    lastRefreshedAt: Date.now(),
+  };
 
   for (const device of devices) {
     await upsertDevice(device);
@@ -178,10 +210,15 @@ export const hydrateAppState = async (
 
   return {
     devices,
-    usageSnapshots,
+    usageSnapshots: usageSnapshots.filter(
+      snapshot => !isSampleDevice(snapshot.deviceId),
+    ),
     activity,
-    policies,
+    policies: policies.filter(
+      policy => !policy.deviceId || !isSampleDevice(policy.deviceId),
+    ),
     automationProfiles,
+    schedules: (appValues.schedules as ScheduleRule[] | undefined) ?? [],
     settings,
     globalLimit,
     timer,
@@ -193,15 +230,21 @@ export const persistDevice = async (device: ConnectedDevice): Promise<void> => {
   await upsertDevice(device);
 };
 
-export const persistUsageSnapshot = async (snapshot: UsageSnapshot): Promise<void> => {
+export const persistUsageSnapshot = async (
+  snapshot: UsageSnapshot,
+): Promise<void> => {
   await addUsageSnapshot(snapshot);
 };
 
-export const persistActivityEvent = async (event: ActivityEvent): Promise<void> => {
+export const persistActivityEvent = async (
+  event: ActivityEvent,
+): Promise<void> => {
   await addActivityEvent(event);
 };
 
-export const persistPolicies = async (policies: DevicePolicy[]): Promise<void> => {
+export const persistPolicies = async (
+  policies: DevicePolicy[],
+): Promise<void> => {
   for (const policy of policies) {
     await upsertDevicePolicy(policy);
   }
@@ -223,7 +266,9 @@ export const persistGlobalLimit = async (limit: DataLimit): Promise<void> => {
   await saveAppValue('globalLimit', limit);
 };
 
-export const persistTimer = async (timer: HotspotTimer | null): Promise<void> => {
+export const persistTimer = async (
+  timer: HotspotTimer | null,
+): Promise<void> => {
   await saveAppValue('timer', timer);
 };
 

@@ -1,15 +1,19 @@
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface PremiumGateProps {
   premium: boolean;
   onUpgrade?: () => void;
+  onRestore?: () => void;
+  busy?: boolean;
   children: React.ReactNode;
 }
 
 export const PremiumGate: React.FC<PremiumGateProps> = ({
   premium,
   onUpgrade,
+  onRestore,
+  busy,
   children,
 }) => {
   if (!premium) {
@@ -17,17 +21,25 @@ export const PremiumGate: React.FC<PremiumGateProps> = ({
       <View style={styles.lockCard}>
         <Text style={styles.lockTitle}>Hotspot Manager Pro</Text>
         <Text style={styles.lockText}>
-          Free keeps core device control, timer, limits, and activity tracking.
-          Pro unlocks automations, per-device policy enforcement, richer
-          insights, backup/export, and smarter recommendations.
+          Pro unlocks scheduled budgets, per-device caps, detailed reports, and
+          data exports.
         </Text>
-        <View style={styles.list}>
-          <Text style={styles.item}>Free: device control, timer, limits, alerts</Text>
-          <Text style={styles.item}>Pro: policy profiles, insights, backup/export</Text>
-        </View>
         {onUpgrade ? (
-          <Pressable onPress={onUpgrade} style={styles.upgradeButton}>
+          <Pressable
+            disabled={busy}
+            onPress={onUpgrade}
+            style={styles.upgradeButton}
+          >
             <Text style={styles.upgradeButtonText}>Unlock Pro</Text>
+          </Pressable>
+        ) : null}
+        {onRestore ? (
+          <Pressable
+            disabled={busy}
+            onPress={onRestore}
+            style={styles.restoreButton}
+          >
+            <Text style={styles.lockText}>Restore purchases</Text>
           </Pressable>
         ) : null}
       </View>
@@ -54,13 +66,9 @@ const styles = StyleSheet.create({
     color: '#38384d',
     marginBottom: 10,
   },
-  list: {
-    gap: 4,
-    marginBottom: 10,
-  },
-  item: {
-    color: '#38384d',
-    fontWeight: '600',
+  restoreButton: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
   },
   upgradeButton: {
     alignSelf: 'flex-start',

@@ -1,4 +1,4 @@
-import {createSlice, PayloadAction} from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import {
   ActivityEvent,
@@ -10,6 +10,7 @@ import {
   DevicePolicy,
   HotspotStatus,
   HotspotTimer,
+  ScheduleRule,
   UsageSnapshot,
 } from '../../types/domain';
 import {
@@ -22,11 +23,11 @@ interface HotspotState {
   hotspotStatus: HotspotStatus;
   devices: ConnectedDevice[];
   globalLimit: DataLimit;
-  globalUsageBytes: number;
   timer: HotspotTimer | null;
   activity: ActivityEvent[];
   policies: DevicePolicy[];
   automationProfiles: AutomationProfile[];
+  schedules: ScheduleRule[];
   usageSnapshots: UsageSnapshot[];
   settings: AppSettings;
 }
@@ -38,18 +39,18 @@ const initialState: HotspotState = {
     canListClients: false,
     canBlockClients: false,
     canRunBackgroundAutomation: false,
-    canSendLocalNotifications: true,
-    canEstimateUsage: true,
+    canSendLocalNotifications: false,
+    canEstimateUsage: false,
     diagnostics: [],
   },
   hotspotStatus: defaultHotspotStatus,
   devices: [],
   globalLimit: defaultGlobalLimit,
-  globalUsageBytes: 0,
   timer: null,
   activity: [],
   policies: [],
   automationProfiles: [],
+  schedules: [],
   usageSnapshots: [],
   settings: {
     notificationsEnabled: true,
@@ -72,7 +73,7 @@ const hotspotSlice = createSlice({
     hydrateHotspotState(
       state,
       action: PayloadAction<
-        Omit<HotspotState, 'capability' | 'globalUsageBytes'> & {
+        Omit<HotspotState, 'capability'> & {
           capability?: CapabilityState;
         }
       >,
@@ -84,28 +85,28 @@ const hotspotSlice = createSlice({
       state.activity = action.payload.activity;
       state.policies = action.payload.policies;
       state.automationProfiles = action.payload.automationProfiles;
+      state.schedules = action.payload.schedules;
       state.usageSnapshots = action.payload.usageSnapshots;
       state.settings = action.payload.settings;
-      state.globalUsageBytes = action.payload.usageSnapshots.reduce(
-        (sum, snapshot) => sum + snapshot.bytesUsed,
-        0,
-      );
       if (action.payload.capability) {
         state.capability = action.payload.capability;
       }
     },
     setDevices(state, action: PayloadAction<ConnectedDevice[]>) {
       state.devices = action.payload;
-      state.hotspotStatus.connectedDeviceCount = action.payload.length;
     },
     upsertDevice(state, action: PayloadAction<ConnectedDevice>) {
-      const existing = state.devices.findIndex(device => device.id === action.payload.id);
+      const existing = state.devices.findIndex(
+        device => device.id === action.payload.id,
+      );
       if (existing >= 0) {
         state.devices[existing] = action.payload;
       } else {
         state.devices.push(action.payload);
       }
-      state.hotspotStatus.connectedDeviceCount = state.devices.length;
+    },
+    setSchedules(state, action: PayloadAction<ScheduleRule[]>) {
+      state.schedules = action.payload;
     },
     setGlobalLimit(state, action: PayloadAction<DataLimit>) {
       state.globalLimit = action.payload;
@@ -125,7 +126,9 @@ const hotspotSlice = createSlice({
       state.policies = action.payload;
     },
     upsertPolicy(state, action: PayloadAction<DevicePolicy>) {
-      const existing = state.policies.findIndex(policy => policy.id === action.payload.id);
+      const existing = state.policies.findIndex(
+        policy => policy.id === action.payload.id,
+      );
       if (existing >= 0) {
         state.policies[existing] = action.payload;
       } else {
@@ -147,14 +150,9 @@ const hotspotSlice = createSlice({
     },
     setUsageSnapshots(state, action: PayloadAction<UsageSnapshot[]>) {
       state.usageSnapshots = action.payload;
-      state.globalUsageBytes = action.payload.reduce(
-        (sum, snapshot) => sum + snapshot.bytesUsed,
-        0,
-      );
     },
     addUsageSnapshot(state, action: PayloadAction<UsageSnapshot>) {
       state.usageSnapshots.push(action.payload);
-      state.globalUsageBytes += action.payload.bytesUsed;
     },
     setSettings(state, action: PayloadAction<AppSettings>) {
       state.settings = action.payload;
@@ -169,6 +167,7 @@ export const {
   setDevices,
   upsertDevice,
   setGlobalLimit,
+  setSchedules,
   setTimer,
   setActivity,
   addActivity,

@@ -1,34 +1,47 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
-import {InsightsSummary} from '../services/insightsService';
+import { appStyles } from '../theme';
+import { formatBytes } from '../utils/format';
+import { InsightsSummary } from '../services/insightsService';
 
 interface InsightsScreenProps {
   summary: InsightsSummary;
-  usageCsv: string;
-  backupPayload: string;
+  getUsageCsv: () => string;
+  getBackupPayload: () => string;
 }
 
 export const InsightsScreen: React.FC<InsightsScreenProps> = ({
   summary,
-  usageCsv,
-  backupPayload,
+  getUsageCsv,
+  getBackupPayload,
 }) => {
+  const share = async (title: string, getMessage: () => string) => {
+    try {
+      await Share.share({ title, message: getMessage() });
+    } catch {
+      Alert.alert('Could not open sharing.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.heroCard}>
         <Text style={styles.heroTitle}>Insights</Text>
         <Text style={styles.heroText}>
-          {summary.activeDeviceCount} active device(s) • {summary.alertCount} alert(s)
+          {summary.activeDeviceCount} device(s) with logged usage â€¢{' '}
+          {summary.alertCount} alert(s)
         </Text>
-        <Text style={styles.heroText}>Total tracked bytes: {summary.totalBytes}</Text>
+        <Text style={styles.heroText}>
+          Total logged: {formatBytes(summary.totalBytes)}
+        </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.title}>Top devices</Text>
+        <Text style={styles.title}>Usage by device</Text>
         {summary.topDevices.map(device => (
           <Text key={device.deviceId} style={styles.body}>
-            {device.label}: {device.totalBytes} bytes
+            {device.label}: {formatBytes(device.totalBytes)}
           </Text>
         ))}
       </View>
@@ -37,25 +50,31 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({
         <Text style={styles.title}>Recommendations</Text>
         {summary.recommendations.length === 0 ? (
           <Text style={styles.body}>
-            No recommendations yet. Capture more usage and device history first.
+            No recommendations yet. Log usage to see trends here.
           </Text>
         ) : (
           summary.recommendations.map(item => (
             <Text key={item} style={styles.body}>
-              • {item}
+              â€¢ {item}
             </Text>
           ))
         )}
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.title}>CSV export preview</Text>
-        <Text style={styles.preview}>{usageCsv || 'No usage snapshots recorded yet.'}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.title}>Backup payload preview</Text>
-        <Text style={styles.preview}>{backupPayload}</Text>
+        <Text style={styles.title}>Data exports</Text>
+        <Pressable
+          style={appStyles.button}
+          onPress={() => share('Hotspot usage CSV', getUsageCsv)}
+        >
+          <Text style={appStyles.buttonText}>Share usage CSV</Text>
+        </Pressable>
+        <Pressable
+          style={appStyles.subtleButton}
+          onPress={() => share('Hotspot data JSON', getBackupPayload)}
+        >
+          <Text style={appStyles.subtleButtonText}>Share data as JSON</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -93,10 +112,5 @@ const styles = StyleSheet.create({
   },
   body: {
     color: '#44506e',
-  },
-  preview: {
-    color: '#44506e',
-    fontFamily: 'monospace',
-    fontSize: 12,
   },
 });

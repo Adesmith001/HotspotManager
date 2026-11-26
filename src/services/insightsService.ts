@@ -28,10 +28,14 @@ export const buildInsightsSummary = (
   policies: DevicePolicy[],
   activity: ActivityEvent[],
 ): InsightsSummary => {
-  const totals = usageSnapshots.reduce<Record<string, number>>((acc, snapshot) => {
-    acc[snapshot.deviceId] = (acc[snapshot.deviceId] ?? 0) + snapshot.bytesUsed;
-    return acc;
-  }, {});
+  const totals = usageSnapshots.reduce<Record<string, number>>(
+    (acc, snapshot) => {
+      acc[snapshot.deviceId] =
+        (acc[snapshot.deviceId] ?? 0) + snapshot.bytesUsed;
+      return acc;
+    },
+    {},
+  );
 
   const topDevices = devices
     .map(device => ({
@@ -42,7 +46,7 @@ export const buildInsightsSummary = (
     .sort((left, right) => right.totalBytes - left.totalBytes);
 
   const recommendations = policies.flatMap(policy => {
-    if (!policy.deviceId || policy.byteCap == null) {
+    if (!policy.enabled || !policy.deviceId || policy.byteCap == null) {
       return [];
     }
     const device = devices.find(entry => entry.id === policy.deviceId);
@@ -53,13 +57,19 @@ export const buildInsightsSummary = (
     }
 
     return [
-      `${getDeviceLabel(device)} is overrunning ${policy.name}. Consider a tighter cap or an automatic block rule.`,
+      `${getDeviceLabel(device)} has logged more than the cap in ${
+        policy.name
+      } across its usage history.`,
     ];
   });
 
   return {
-    totalBytes: usageSnapshots.reduce((sum, snapshot) => sum + snapshot.bytesUsed, 0),
-    activeDeviceCount: topDevices.filter(device => device.totalBytes > 0).length,
+    totalBytes: usageSnapshots.reduce(
+      (sum, snapshot) => sum + snapshot.bytesUsed,
+      0,
+    ),
+    activeDeviceCount: topDevices.filter(device => device.totalBytes > 0)
+      .length,
     alertCount: activity.filter(event => event.severity !== 'info').length,
     topDevices,
     recommendations,

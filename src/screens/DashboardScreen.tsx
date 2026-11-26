@@ -1,14 +1,18 @@
-import React, {useMemo} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {ActivityEvent, CapabilityState, DataLimit, HotspotStatus, HotspotTimer} from '../types/domain';
-import {formatBytes} from '../utils/format';
-import {getRemainingSeconds} from '../services/timerService';
+import {
+  ActivityEvent,
+  CapabilityState,
+  DataLimit,
+  HotspotTimer,
+} from '../types/domain';
+import { formatBytes } from '../utils/format';
+import { getRemainingSeconds } from '../services/timerService';
 
 interface DashboardScreenProps {
   capability: CapabilityState;
   premiumActive: boolean;
-  hotspotStatus: HotspotStatus;
   globalUsageBytes: number;
   globalLimit: DataLimit;
   timer: HotspotTimer | null;
@@ -16,15 +20,14 @@ interface DashboardScreenProps {
   activity: ActivityEvent[];
   onStartTimer: (durationMinutes: number) => void;
   onStopTimer: () => void;
-  onToggleHotspot: (enabled: boolean) => void;
-  onCaptureUsage: () => void;
+  onOpenSettings: () => void;
+  onLogUsage: () => void;
   onUpgradePress: () => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   capability,
   premiumActive,
-  hotspotStatus,
   globalUsageBytes,
   globalLimit,
   timer,
@@ -32,8 +35,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   activity,
   onStartTimer,
   onStopTimer,
-  onToggleHotspot,
-  onCaptureUsage,
+  onOpenSettings,
+  onLogUsage,
   onUpgradePress,
 }) => {
   const remainingSeconds = useMemo(() => {
@@ -50,22 +53,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Hotspot control center</Text>
         <Text style={styles.heroSubtitle}>
-          Tier {capability.tier} • {premiumActive ? 'Pro automation enabled' : 'Free core control'}
+          Tier {capability.tier} â€¢ {premiumActive ? 'Pro' : 'Free'}
         </Text>
         <Text style={styles.heroText}>
-          {hotspotStatus.enabled ? 'Hotspot is running.' : 'Hotspot is stopped.'} {' '}
-          {hotspotStatus.connectedDeviceCount} device(s) connected.
+          Manage hotspot access in system settings.
         </Text>
         <View style={styles.heroRow}>
-          <Pressable
-            onPress={() => onToggleHotspot(!hotspotStatus.enabled)}
-            style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              {hotspotStatus.enabled ? 'Attempt Stop' : 'Attempt Start'}
-            </Text>
+          <Pressable onPress={onOpenSettings} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Hotspot settings</Text>
           </Pressable>
-          <Pressable onPress={onCaptureUsage} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Capture Approx Snapshot</Text>
+          <Pressable onPress={onLogUsage} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Log data usage</Text>
           </Pressable>
         </View>
       </View>
@@ -73,10 +71,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <View style={styles.card}>
         <Text style={styles.title}>Usage and budget</Text>
         <Text style={styles.body}>
-          {formatBytes(globalUsageBytes)} used of {formatBytes(globalLimit.byteLimit)}
+          {formatBytes(globalUsageBytes)} used of{' '}
+          {formatBytes(globalLimit.byteLimit)}
         </Text>
         <Text style={styles.caption}>
-          Warning threshold: {globalLimit.warningThresholdPct}% • Period: {globalLimit.periodType}
+          Warning threshold: {globalLimit.warningThresholdPct}% â€¢ Period:{' '}
+          {globalLimit.periodType}
         </Text>
       </View>
 
@@ -85,20 +85,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <Text style={styles.body}>
           {timer?.active
             ? `${remainingSeconds}s remaining`
-            : 'No active timer. Start one to limit session length.'}
+            : 'Set a reminder to turn off your hotspot. Reminders appear while using the app or when you return.'}
         </Text>
         <View style={styles.heroRow}>
-          {[30, 60, 120].map(minutes => (
+          {[1, 30, 60, 120].map(minutes => (
             <Pressable
               key={minutes}
               onPress={() => onStartTimer(minutes)}
-              style={styles.secondaryButton}>
+              style={styles.secondaryButton}
+            >
               <Text style={styles.secondaryButtonText}>{minutes} min</Text>
             </Pressable>
           ))}
-          <Pressable onPress={onStopTimer} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Stop Timer</Text>
-          </Pressable>
+          {timer?.active ? (
+            <Pressable onPress={onStopTimer} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Stop timer</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -120,7 +123,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <Text style={styles.title}>Capability diagnostics</Text>
         {capability.diagnostics.map(message => (
           <Text key={message} style={styles.caption}>
-            • {message}
+            â€¢ {message}
           </Text>
         ))}
         {!premiumActive ? (
